@@ -1947,6 +1947,7 @@ function applyI18n(){
 let _taVendors=null;
 const _taModelsCache={};
 async function taGet(endpoint,params){
+  try{
   params=params||{};
   const sess=await sb.auth.getSession();
   const tok=sess.data.session?.access_token;
@@ -1959,6 +1960,7 @@ async function taGet(endpoint,params){
   });
   if(!r.ok)throw new Error('HTTP '+r.status);
   return r.json();
+  }catch(e){console.warn('[taGet]:',e.message);throw e;}
 }
 function taSetBadge(msg,ok){
   const b=document.getElementById('ta-enc-status');
@@ -1998,6 +2000,7 @@ async function taGetModels(vendorId){
 }
 // Enrichit MM avec les modèles TyresAddict triés par saison
 async function taEnrichModels(brand,saison){
+  try{
   const vendor=taFindVendor(brand);
   if(!vendor)return;
   const taModels=await taGetModels(vendor.id);
@@ -2011,6 +2014,7 @@ async function taEnrichModels(brand,saison){
       if(!MM[brand][s].includes(name))MM[brand][s].push(name);
     });
   });
+  }catch(e){console.warn('[taEnrichModels]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 // Charge les vendors TyresAddict au démarrage (non-bloquant)
 window.addEventListener('load',()=>{taLoadVendors();});
@@ -2325,6 +2329,14 @@ window.onerror=function(msg,src,line,col,err){
   return false;
 };
 
+function _alertWrap(msg){
+  const s=String(msg||'');
+  const isOk=s.includes('✅')||s.includes('complet')||s.includes('créé')||s.includes('terminé')||s.includes('Import complet');
+  const isWarn=s.includes('⛔')||s.includes('insuffisant')||s.includes('invalide')||s.includes('requis')||s.includes('vide')||s.includes('introuvable')||s.includes('minimum')||s.includes('Sélectionnez')||s.includes('Ajoutez')||s.includes('Veuillez')||s.includes('empty')||s.includes('cart')||s.includes('panier');
+  const bg=isOk?'#15803d':isWarn?'#1e40af':'#b45309';
+  const dur=isOk?3500:isWarn?4500:6000;
+  _showToast(s.replace(/\n/g,'<br>'),bg,dur);
+}
 function _showToast(html,bg,duration){
   bg=bg||'#15803d';duration=duration||3500;
   const t=document.getElementById('gl-toast');
@@ -2369,6 +2381,7 @@ let MM={
 // AUTOCOMPLETE ADRESSE
 let _aT={},_aR={};
 async function addrSearch(inp,dd){
+  try{
   const v=document.getElementById(inp)?.value||'';
   const el=document.getElementById(dd);
   if(!el)return;
@@ -2401,6 +2414,7 @@ async function addrSearch(inp,dd){
       el.style.display='block';
     }catch(e){el.style.display='none';}
   },500);
+  }catch(e){console.warn('[addrSearch]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 document.addEventListener('click',e=>{
   document.querySelectorAll('.addr-dd').forEach(d=>{
@@ -2837,12 +2851,14 @@ function buildStockRows(data,type,simRole){
   </tr>`;}).join('');
 }
 async function deleteStock(gi,type){
+  try{
   const r=stockData.find(function(x){return x.id===gi;});if(!r)return;
   if(confirm(t('msg.confirm_delete_stock').replace('{n}',r.ref+' '+r.marque+' '+r.modele))){
-    if(r.id){const{error}=await sb.from('stock').delete().eq('id',r.id);if(error){alert(t('msg.error')+' '+error.message);return;}}
+    if(r.id){const{error}=await sb.from('stock').delete().eq('id',r.id);if(error){_alertWrap(t('msg.error')+' '+error.message);return;}}
     const _idx=stockData.findIndex(function(x){return x.id===gi;});if(_idx>-1)stockData.splice(_idx,1);
     filterStock(type);
   }
+  }catch(e){console.warn('[deleteStock]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 var _stBrand='',_stModel='',_stAvailMdl=[];
 function stBrandInput(type,v){
@@ -3424,9 +3440,9 @@ async function encSave(btn){
   const brand=document.getElementById('enc-brand')?.value,saison=document.getElementById('enc-saison')?.value,etat=document.getElementById('enc-etat')?.value;
   const dot=document.getElementById('enc-dot')?.value,mm=parseFloat(document.getElementById('enc-mm')?.value)||0;
   const qty=parseInt(document.getElementById('enc-qty')?.value)||1;
-  if(!w||!brand||!saison||!etat){alert(t('msg.fill_enc_required'));return;}
+  if(!w||!brand||!saison||!etat){_alertWrap(t('msg.fill_enc_required'));return;}
   if(etat==='Occasion'&&mm>0&&mm<4){
-    alert('⛔ '+mm+'mm — profil insuffisant pour l\'encodage.\nEn dessous de 4mm, le pneu est hors d\'usage (poubelle).\nEncodage refusé.');
+    _alertWrap('⛔ '+mm+'mm — profil insuffisant pour l\'encodage.\nEn dessous de 4mm, le pneu est hors d\'usage (poubelle).\nEncodage refusé.');
     document.getElementById('enc-mm')?.focus();
     return;
   }
@@ -3665,26 +3681,34 @@ function filterCmds(f,btn){
   document.querySelectorAll('#cmd-table tbody tr').forEach(function(tr){tr.style.display=(f==='all'||tr.dataset.statut===f)?'':'none';});
 }
 async function validerCmd(id){
+  try{
   var res=await sb.from('commandes').update({statut:'En preparation'}).eq('id',id);
-  if(res.error){alert(t('msg.error')+' '+res.error.message);return;}
+  if(res.error){_alertWrap(t('msg.error')+' '+res.error.message);return;}
   renderCommandes(document.getElementById('main-content'));
+  }catch(e){console.warn('[validerCmd]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 async function changerStatutCmdDirect(id,s){
+  try{
   if(!s)return;
   var res=await sb.from('commandes').update({statut:s}).eq('id',id);
-  if(res.error){alert(t('msg.error')+' '+res.error.message);return;}
+  if(res.error){_alertWrap(t('msg.error')+' '+res.error.message);return;}
   renderCommandes(document.getElementById('main-content'));
+  }catch(e){console.warn('[changerStatutCmdDirect]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 async function marquerPaye(id){
+  try{
   var res=await sb.from('commandes').update({statut_paiement:'Paye'}).eq('id',id);
-  if(res.error){alert(t('msg.error')+' '+res.error.message);return;}
+  if(res.error){_alertWrap(t('msg.error')+' '+res.error.message);return;}
   renderCommandes(document.getElementById('main-content'));
+  }catch(e){console.warn('[marquerPaye]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 async function validerToutesAttente(n){
+  try{
   if(!confirm(t('msg.confirm_validate_orders').replace('{n}',n)))return;
   var res=await sb.from('commandes').update({statut:'En preparation'}).eq('statut','En attente');
-  if(res.error){alert(t('msg.error')+' '+res.error.message);return;}
+  if(res.error){_alertWrap(t('msg.error')+' '+res.error.message);return;}
   renderCommandes(document.getElementById('main-content'));
+  }catch(e){console.warn('[validerToutesAttente]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 function buildCmd(){return cmdOrders.map(o=>`<div class="cmd-card"><div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;"><div><div style="font-size:14px;font-weight:600;">${o.client} <span style="font-size:11px;color:var(--text3);font-weight:400;">${o.id}</span></div><div style="font-size:12px;color:var(--text2);">${o.addr} · ${o.phone}</div></div><span class="bge ${o.status==='pending'?'bg-a':o.status==='validated'?'bg-g':'bg-b'}">${o.status==='pending'?t('status.waiting'):o.status==='validated'?t('status.validated'):t('status.delivered')}</span></div><div style="border-top:1px solid var(--border);padding-top:8px;margin-bottom:10px;">${o.items.map(i=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:var(--text2);"><span style="font-weight:600;color:var(--text)">${i.dim}</span><span>${i.marque} · ${i.saison}</span><span style="font-weight:600">${i.qty} ${t('lbl.tyres_n')}</span></div>`).join('')}</div>${o.status==='pending'?`<div style="display:flex;gap:8px;"><button class="btn btn-p" onclick="validateCmd('${o.id}')">${t('cmd.validate_order')}</button><button class="btn" style="color:var(--red-t);border-color:#fca5a5;" onclick="rejectCmd('${o.id}')">${t('btn.reject')}</button></div>`:''}</div>`).join('');}
@@ -3693,6 +3717,7 @@ function rejectCmd(id){rejectCmdSupabase(id);}
 
 // LIVRAISON
 async function renderLivraison(c){
+  try{
   if(!c)c=document.getElementById('main-content');
   c.innerHTML='<div style="padding:2rem;text-align:center;color:var(--text2)">'+t('msg.loading')+'</div>';
   var _livQuery=sb.from('commandes').select('*').eq('statut','En preparation');
@@ -3753,6 +3778,7 @@ async function renderLivraison(c){
       document.getElementById('liv-content').innerHTML=window._lc[t];
     }
   };
+  }catch(e){console.warn('[renderLivraison]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 function _tqCmd(o){return o.items.reduce(function(s,it){return s+(it.qty||0);},0);}
 function _groupByDate(orders){
@@ -3915,7 +3941,7 @@ function _etiquettes(orders,today){
 function _printAll(){
   var pa=document.getElementById('print-area');
   if(!pa)return;
-  if(!window._pd||!window._lc){alert(t('msg.loading_wait'));return;}
+  if(!window._pd||!window._lc){_alertWrap(t('msg.loading_wait'));return;}
   var d=window._pd;
   if(!confirm(t('msg.confirm_print_deliver').replace('{n}',d.n)))return;
   pa.innerHTML=_bonDrv(d.byD,d.n,d.today,d.tot)+_bonMag(d.byL,d.n,d.today,d.tot)+window._lc.fic+window._lc.etiq;
@@ -3924,7 +3950,7 @@ function _printAll(){
     pa.innerHTML='';
     if(confirm('Confirmer la livraison des '+d.n+' commandes ? (Cette action est irréversible)')){
       sb.from('commandes').update({statut:'Livre'}).in('id',d.ids).then(function(res){
-        if(res.error){alert(t('msg.error')+' '+res.error.message);return;}
+        if(res.error){_alertWrap(t('msg.error')+' '+res.error.message);return;}
         renderLivraison(document.getElementById('main-content'));
       });
     }
@@ -4050,7 +4076,7 @@ async function deleteClient(login){
   const cl=clientsData.find(function(x){return String(x.login)===String(login);});
   if(!cl||!confirm(t('msg.confirm_delete_client').replace('{n}',cl.nom)))return;
   const {error}=await sb.from('clients').delete().eq('login',cl.login);
-  if(error){alert(t('msg.error')+' '+error.message);return;}
+  if(error){_alertWrap(t('msg.error')+' '+error.message);return;}
   const _cidx=clientsData.findIndex(function(x){return x.login===login;});if(_cidx>-1)clientsData.splice(_cidx,1);
   const tb=document.getElementById('cl-body');
   if(tb)tb.innerHTML=buildClientRows(clientsData);
@@ -4261,6 +4287,7 @@ function swRgTab(tab){
 }
 
 async function renderRapportGroupeData(){
+  try{
   // Admin groupe : groupe fixé par son identifiant. Admin JAMTIRES : sélecteur libre
   const grp=window._rgFixe||document.getElementById('rg-sel')?.value||'';
   const from=document.getElementById('rg-from')?.value||'';
@@ -4315,6 +4342,7 @@ async function renderRapportGroupeData(){
   else if(tab==='financier') rgFinancier(el,grp,from,to);
   else if(tab==='gl') rgGreenLights(el,grp);
   else if(tab==='data-analyse') rgDataAnalyse(el,grp,from,to,grpCmds,grpStock,grpRams);
+  }catch(e){console.warn('[renderRapportGroupeData]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 function rgSynthese(el,grp,from,to,grpCmds,grpStock,grpRams){
@@ -5101,6 +5129,7 @@ async function _geocodeStop(siteName){
 }
 
 async function syncLivraisonTournees(){
+  try{
   if(!sb||!currentUser||currentUser.role==='chauffeur')return;
   var today=new Date().toISOString().slice(0,10);
   var lockCutoff=new Date(Date.now()+24*3600000).toISOString().slice(0,10);
@@ -5194,6 +5223,7 @@ async function syncLivraisonTournees(){
   // Recharger tout
   var res=await sb.from('tournees').select('*,tournee_stops(*)').order('date_tournee',{ascending:false});
   if(res.data&&res.data.length)_tourneesData=res.data;
+  }catch(e){console.warn('[syncLivraisonTournees]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 // ── IMPORT EXCEL / CSV — lecture universelle + mappeur de colonnes ──
@@ -5216,10 +5246,10 @@ function _trnLoadFile(file){
       // Convertir en tableau de tableaux (premier rang = en-têtes)
       var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
       rows=rows.filter(function(r){return r.some(function(c){return String(c).trim();});});
-      if(rows.length<2){alert('Fichier vide ou sans données.');return;}
+      if(rows.length<2){_alertWrap('Fichier vide ou sans données.');return;}
       _trnShowColumnMapper(rows);
     }catch(err){
-      alert('Impossible de lire le fichier : '+err.message);
+      _alertWrap('Impossible de lire le fichier : '+err.message);
     }
   };
   reader.readAsArrayBuffer(file);
@@ -5332,7 +5362,7 @@ async function _trnApplyMapping(){
   var si=parseInt(document.getElementById('map-site').value);
   var ai=parseInt(document.getElementById('map-addr').value);
   var qi=parseInt(document.getElementById('map-qty').value);
-  if(si===-1){alert('Sélectionnez au moins la colonne Site / Garage.');return;}
+  if(si===-1){_alertWrap('Sélectionnez au moins la colonne Site / Garage.');return;}
 
   var stops=[];
   for(var i=1;i<rows.length;i++){
@@ -5342,7 +5372,7 @@ async function _trnApplyMapping(){
     var qty=qi>=0?parseInt(String(row[qi]||'0'))||0:0;
     if(site)stops.push({site:site,adresse:addr,qty:qty});
   }
-  if(!stops.length){alert('Aucune ligne valide trouvée.');return;}
+  if(!stops.length){_alertWrap('Aucune ligne valide trouvée.');return;}
 
   // Fermer le mappeur
   document.getElementById('trn-mapper-overlay').style.display='none';
@@ -5433,11 +5463,12 @@ function _trnUpdateCap(){
 }
 
 async function saveTournee(){
+  try{
   var date=document.getElementById('trn-date')?.value;
   var chauffeur=document.getElementById('trn-driver')?.value?.trim();
   var groupeNom=(document.getElementById('trn-groupe')?.value||'').trim();
-  if(!date||!chauffeur){alert('Date et chauffeur requis.');return;}
-  if(!groupeNom){alert('Sélectionnez un groupe — les stops apparaîtront dans le rapport de ce groupe.');return;}
+  if(!date||!chauffeur){_alertWrap('Date et chauffeur requis.');return;}
+  if(!groupeNom){_alertWrap('Sélectionnez un groupe — les stops apparaîtront dans le rapport de ce groupe.');return;}
 
   // Récupérer les stops valides
   var stopsRaw=[];
@@ -5452,7 +5483,7 @@ async function saveTournee(){
     i++;
     if(i>50)break;
   }
-  if(!stopsRaw.length){alert('Ajoutez au moins un stop.');return;}
+  if(!stopsRaw.length){_alertWrap('Ajoutez au moins un stop.');return;}
 
   // Géocodage + optimisation nearest-neighbor si adresses saisies et dépôt configuré
   var hasAddrs=stopsRaw.some(function(s){return s.addr;});
@@ -5506,23 +5537,25 @@ async function saveTournee(){
       var tourStops=tours[ti];
       var tournee={date_tournee:date,chauffeur:chauffeur+(nbTours>1?' — Tournée '+(ti+1):''),statut:'planifie'};
       var {data:trnData,error:trnErr}=await sb.from('tournees').insert(tournee).select().single();
-      if(trnErr||!trnData){alert('Erreur création tournée: '+(trnErr?.message||''));return;}
+      if(trnErr||!trnData){_alertWrap('Erreur création tournée: '+(trnErr?.message||''));return;}
       var stopsInsert=tourStops.map(function(s,idx){return{tournee_id:trnData.id,numero_ordre:idx+1,groupe_nom:groupeNom,site_nom:s.site,adresse:s.addr,qty_theorique:s.qty,statut:'en_attente'};});
       await sb.from('tournee_stops').insert(stopsInsert);
     }
     document.getElementById('trn-overlay').style.display='none';
     await renderTourneesPage(document.getElementById('main-content'));
-  }catch(e){alert('Erreur: '+e.message);}
+  }catch(e){_alertWrap('Erreur: '+e.message);}
+  }catch(e){console.warn('[saveTournee]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 async function openTourneeDetail(tourneeId){
+  try{
   // Cache local d'abord (fonctionne aussi avec les données démo)
   var trn=_tourneesData.find(function(x){return x.id===tourneeId;});
   if(!trn){
     var res=await sb.from('tournees').select('*,tournee_stops(*)').eq('id',tourneeId).single();
     trn=res.data;
   }
-  if(!trn){alert('Tournée introuvable.');return;}
+  if(!trn){_alertWrap('Tournée introuvable.');return;}
   var stops=(trn.tournee_stops||[]).sort(function(a,b){return a.numero_ordre-b.numero_ordre;});
   var theo=stops.reduce(function(s,x){return s+(x.qty_theorique||0);},0);
   var reel=stops.reduce(function(s,x){return s+(x.qty_reel||0);},0);
@@ -5587,10 +5620,12 @@ async function openTourneeDetail(tourneeId){
     +'</tr></thead><tbody>'+stopsHtml+'</tbody></table>'
     +'</div>'
   +'</div>';
+  }catch(e){console.warn('[openTourneeDetail]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 // ── MODE CHAUFFEUR (plein écran mobile) ──
 async function openTourneeDriverMode(tourneeId){
+  try{
   // Chercher d'abord dans le cache local (données démo ou déjà chargées)
   var trn=_tourneesData.find(function(x){return x.id===tourneeId;});
   // Si pas en cache, charger depuis Supabase
@@ -5598,7 +5633,7 @@ async function openTourneeDriverMode(tourneeId){
     var res=await sb.from('tournees').select('*,tournee_stops(*)').eq('id',tourneeId).single();
     trn=res.data;
   }
-  if(!trn){alert('Tournée introuvable.');return;}
+  if(!trn){_alertWrap('Tournée introuvable.');return;}
   var stops=(trn.tournee_stops||[]).sort(function(a,b){return a.numero_ordre-b.numero_ordre;});
 
   // Mettre en cours si planifiée
@@ -5610,6 +5645,7 @@ async function openTourneeDriverMode(tourneeId){
 
   window._trnDriverState={tourneeId,stops,currentIdx:null};
   _renderDriverList();
+  }catch(e){console.warn('[openTourneeDriverMode]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 // ── ÉCRAN 1 : liste des stops ──
@@ -5747,26 +5783,30 @@ function _drvSigGet(){var c=document.getElementById('drv-sig-canvas');if(!c)retu
   return c.toDataURL('image/png');}
 
 async function _drvValidateStop(stopId,idx){
+  try{
   var qty=parseInt(document.getElementById('drv-qty-reel')?.value);
-  if(isNaN(qty)||qty<0){alert('Quantité invalide.');return;}
+  if(isNaN(qty)||qty<0){_alertWrap('Quantité invalide.');return;}
   var sig=_drvSigGet();
   var update={qty_reel:qty,statut:'fait',encoded_at:new Date().toISOString()};
   if(sig)update.signature_url=sig;
   var {error}=await sb.from('tournee_stops').update(update).eq('id',stopId);
-  if(error){alert('Erreur sauvegarde: '+error.message);return;}
+  if(error){_alertWrap('Erreur sauvegarde: '+error.message);return;}
   // Mettre à jour le cache local
   var state=window._trnDriverState;
   if(state&&state.stops[idx])Object.assign(state.stops[idx],update);
   // Toast
   _drvToast(t('trn.stop_done'));
   setTimeout(function(){_renderDriverList();},900);
+  }catch(e){console.warn('[_drvValidateStop]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 async function _drvSkipStop(stopId,idx){
+  try{
   await sb.from('tournee_stops').update({statut:'saute'}).eq('id',stopId);
   var state=window._trnDriverState;
   if(state&&state.stops[idx])state.stops[idx].statut='saute';
   _renderDriverList();
+  }catch(e){console.warn('[_drvSkipStop]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 function _driverDoneScreen(tourneeId){
@@ -5780,9 +5820,11 @@ function _driverDoneScreen(tourneeId){
 }
 
 async function _drvFinishTour(tourneeId){
+  try{
   await sb.from('tournees').update({statut:'termine'}).eq('id',tourneeId);
   document.getElementById('trn-driver-overlay').style.display='none';
   await renderTourneesPage(document.getElementById('main-content'));
+  }catch(e){console.warn('[_drvFinishTour]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 function _drvToast(msg){
@@ -5795,6 +5837,7 @@ function _drvToast(msg){
 
 // ── EXPORTS TOURNÉE ──
 async function exportTourneePDF(tourneeId){
+  try{
   var trn=_tourneesData.find(function(x){return x.id===tourneeId;});
   if(!trn){var res=await sb.from('tournees').select('*,tournee_stops(*)').eq('id',tourneeId).single();trn=res.data;}
   if(!trn)return;
@@ -5833,6 +5876,7 @@ async function exportTourneePDF(tourneeId){
     +'<table><thead><tr><th>#</th><th>Site</th><th>Adresse</th><th>Théo</th><th>Réel</th><th>Écart</th><th>Heure</th><th>Signature</th></tr></thead><tbody>'+stopsRows+'</tbody></table>'
     +'</body></html>');
   win.document.close();
+  }catch(e){console.warn('[exportTourneePDF]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 function exportTourneeCSV(tourneeId){
@@ -5967,6 +6011,7 @@ function renderStats(c){
 }
 
 async function rgGreenLights(el,grp){
+  try{
   // Charger depuis Supabase si dispo
   var remote=[];
   try{
@@ -6001,10 +6046,12 @@ async function rgGreenLights(el,grp){
   });
   h+='</tbody></table></div>';
   el.innerHTML=h;
+  }catch(e){console.warn('[rgGreenLights]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 // ── BILAN FINANCIER GROUPE ──
 async function rgFinancier(el,grp,from,to){
+  try{
   el.innerHTML='<div style="padding:2rem;text-align:center;color:var(--text2)">'+t('msg.loading')+'</div>';
   var isAdminJam=currentUser&&currentUser.role==='admin_jamtires';
 
@@ -6225,6 +6272,7 @@ async function rgFinancier(el,grp,from,to){
   }
   h+='</div></div>';
   el.innerHTML=h;
+  }catch(e){console.warn('[rgFinancier]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 function rgFinToggle(id,btn){
@@ -6236,6 +6284,7 @@ function rgFinToggle(id,btn){
   if(container){container.querySelectorAll('.rgfin-arrow').forEach(function(a){a.style.transform=open?'':'rotate(180deg)';});}
 }
 async function rgPayJamtires(grp,solde,btn){
+  try{
   inputModal(t('rg.settle_grp_title').replace('{n}',grp),[
     {key:'montant',label:t('lbl.amount')+' (€)',type:'number',placeholder:'0.00',value:solde.toFixed(2),step:'0.01'},
     {key:'notes',label:t('billing.notes_opt'),placeholder:'Ex: virement du 09/05/2026'}
@@ -6247,25 +6296,29 @@ async function rgPayJamtires(grp,solde,btn){
   try{
     var today=new Date().toISOString().slice(0,10);
     var res=await sb.from('paiements_groupes').insert({groupe:grp,montant:montant,date_paiement:today,notes:notes});
-    if(res.error){alert(t('msg.error')+' '+res.error.message);btn.disabled=false;btn.textContent=t('btn.settle_now');return;}
+    if(res.error){_alertWrap(t('msg.error')+' '+res.error.message);btn.disabled=false;btn.textContent=t('btn.settle_now');return;}
     var el=document.getElementById('rg-content');
     var from=document.getElementById('rg-from')?.value||'';
     var to=document.getElementById('rg-to')?.value||'9999';
     rgFinancier(el,grp,from,to);
-  }catch(e){alert(t('msg.error')+' '+e.message);btn.disabled=false;btn.textContent=t('btn.settle_now');}
+  }catch(e){_alertWrap(t('msg.error')+' '+e.message);btn.disabled=false;btn.textContent=t('btn.settle_now');}
   });
+  }catch(e){console.warn('[rgPayJamtires]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 async function rgPayGroupe(cmdId,btn,grp,from,to){
+  try{
   if(!confirm(t('msg.confirm_settle')))return;
   btn.disabled=true;btn.textContent='...';
   var res=await sb.from('commandes').update({statut_paiement:'Paye'}).eq('id',cmdId).eq('groupe',grp);
-  if(res.error){alert(t('msg.error')+' '+res.error.message);btn.disabled=false;btn.textContent=t('billing.settle');return;}
+  if(res.error){_alertWrap(t('msg.error')+' '+res.error.message);btn.disabled=false;btn.textContent=t('billing.settle');return;}
   var el=document.getElementById('rg-content');
   rgFinancier(el,grp,from,to);
+  }catch(e){console.warn('[rgPayGroupe]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);if(btn){btn.disabled=false;btn.textContent=t('billing.settle');}}
 }
 
 async function rgPayTout(btn,grp,ids,total,from,to){
+  try{
   if(!ids||!ids.length)return;
   if(!confirm(t('rg.confirm_settle_all').replace('{n}',ids.length).replace('{m}',parseFloat(total).toFixed(2))))return;
   btn.style.pointerEvents='none';btn.style.opacity='0.6';btn.textContent=t('msg.saving');
@@ -6278,13 +6331,14 @@ async function rgPayTout(btn,grp,ids,total,from,to){
   rgFinMsg('✓ '+ids.length+' facture'+(ids.length>1?'s':'')+' réglée'+(ids.length>1?'s':'')+' — €'+parseFloat(total).toFixed(2)+' enregistré en base de données.','#d1fae5','#065f46');
   var el=document.getElementById('rg-content');
   setTimeout(function(){rgFinancier(el,grp,from,to);},1200);
+  }catch(e){console.warn('[rgPayTout]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);if(btn){btn.style.pointerEvents='';btn.style.opacity='';btn.style.textContent=t('btn.settle_all');}}
 }
 
 async function trnAssignChauffeur(trnId,nom,sel){
   if(!nom)return;
   sel.disabled=true;
   var res=await sb.from('tournees').update({chauffeur:nom}).eq('id',trnId);
-  if(res.error){alert('Erreur : '+res.error.message);sel.disabled=false;return;}
+  if(res.error){_alertWrap('Erreur : '+res.error.message);sel.disabled=false;return;}
   var trn=_tourneesData.find(function(t){return t.id===trnId;});
   if(trn)trn.chauffeur=nom;
   sel.style.borderColor='#22c55e';
@@ -6292,12 +6346,14 @@ async function trnAssignChauffeur(trnId,nom,sel){
 }
 
 async function rgFactureStatut(facId,newStatut,grp,from,to){
+  try{
   if(!confirm('Émettre cette facture et l\'envoyer au groupe ?'))return;
   var res=await sb.from('factures').update({statut:'emise',date_emission:new Date().toISOString().slice(0,10)}).eq('id',facId);
   if(res.error){rgFinMsg('❌ '+res.error.message,'#fee2e2','#991b1b');return;}
   rgFinMsg('📤 Facture émise — suivi paiement via Billit','#d1fae5','#065f46');
   var el=document.getElementById('rg-content');
   setTimeout(function(){rgFinancier(el,grp,from,to);},800);
+  }catch(e){console.warn('[rgFactureStatut]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 function rgFinMsg(msg,bg,color){
@@ -7127,7 +7183,7 @@ async function scanOpenWebcam(n){
     await vid.play();
   }catch(e){
     ov.remove();
-    alert('Webcam non disponible : '+e.message);
+    _alertWrap('Webcam non disponible : '+e.message);
   }
 }
 function scanWebcamClose(){
@@ -7723,19 +7779,24 @@ function scanFillFormOnly(){
 
 // ── MISE À JOUR COMMANDES SUPABASE ──
 async function validateCmdSupabase(id){
+  try{
   await sb.from('commandes').update({statut:'validated'}).eq('id',id);
   var _co=cmdOrders.find(o=>o.id===id);if(_co)_co.status='validated';
   updateBadge();document.getElementById('cmd-list').innerHTML=buildCmd();
+  }catch(e){console.warn('[validateCmdSupabase]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 async function rejectCmdSupabase(id){
+  try{
   await sb.from('commandes').delete().eq('id',id);
   cmdOrders=cmdOrders.filter(o=>o.id!==id);
   updateBadge();document.getElementById('cmd-list').innerHTML=buildCmd();
+  }catch(e){console.warn('[rejectCmdSupabase]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 // PRINT
 async function printAll(){
-  if(!window._pd){alert(t('msg.goto_tour'));return;}
+  try{
+  if(!window._pd){_alertWrap(t('msg.goto_tour'));return;}
   const {byL,byD,n,today,tot}=window._pd;
   const magRows=byL.map((o,i)=>`<tr style="${i===0?'background:#fff8e1':i===n-1?'background:#f0fff4':''}"><td class="pnc">${i+1}</td><td><strong>${o.client}</strong>${i===0?'<br><span style="font-size:9px;color:#b45309;font-weight:700;">▶ 1er chargé</span>':i===n-1?'<br><span style="font-size:9px;color:#166534;font-weight:700;">▶ Dernier chargé</span>':''}<br><span style="font-size:10px;color:#888;">${o.addr}</span></td><td>${o.items.map(it=>`<strong>${it.qty}×</strong> ${it.dim}<br><span style="font-size:10px;color:#888;">${it.marque}</span>`).join('<br>')}</td><td style="text-align:right;font-weight:700;">${tq(o)}</td><td style="text-align:right;color:#888;">${distCache[o.id]} km</td></tr>`).join('');
   const drvRows=byD.map((o,i)=>`<tr><td class="pnc">${i+1}</td><td><strong>${o.client}</strong></td><td style="font-size:11px;">${o.addr}</td><td style="font-size:11px;">${o.phone}</td><td>${o.items.map(it=>`${it.qty}× ${it.dim}`).join('<br>')}</td><td style="text-align:right;font-weight:700;">${tq(o)}</td><td style="text-align:right;color:#888;">${distCache[o.id]} km</td></tr>`).join('');
@@ -7745,6 +7806,7 @@ async function printAll(){
     <div class="pp"><div class="ph"><div><div class="pl">JAMTIRES</div><div style="font-size:11px;color:#666;">${DEPOT.addr}</div></div><div><div class="pt">Bon chauffeur</div><div class="pm">${today} · ${n} stops · ${tot} pneus</div></div></div><div class="pi pid">Stop 1 = plus proche (chargé en dernier → accessible en premier).</div><table class="ptbl"><thead><tr><th>Stop</th><th>Client</th><th>Adresse</th><th>Tél</th><th>Pneus</th><th style="text-align:right">Qté</th><th style="text-align:right">Dist.</th></tr></thead><tbody>${drvRows}</tbody></table></div>
     ${pp}`;
   setTimeout(()=>window.print(),100);
+  }catch(e){console.warn('[printAll]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 // Utilisateur connecté — null jusqu'à l'authentification réussie
@@ -7950,13 +8012,13 @@ function ajouterPanier(i){
   var r=stockData.find(function(x){return x.id===i;});if(!r)return;
   var ex=panierData.find(function(p){return p.id===r.id;});
   var maxQte=Math.floor(r.qty/2)*2;
-  if(maxQte<2){alert(t('msg.stock_pair').replace('{n}',r.ref));return;}
+  if(maxQte<2){_alertWrap(t('msg.stock_pair').replace('{n}',r.ref));return;}
   var prixApplique=getPrixCommande(r);
   var propre=isPneuPropre(r);
-  if(ex){if(ex.qteCmd+2<=maxQte){ex.qteCmd+=2;alert(t('msg.in_cart').replace('{n}',r.ref+' ('+ex.qteCmd+')')  );}else{alert(t('msg.stock_max').replace('{n}',r.ref));}return;}
+  if(ex){if(ex.qteCmd+2<=maxQte){ex.qteCmd+=2;_alertWrap(t('msg.in_cart').replace('{n}',r.ref+' ('+ex.qteCmd+')')  );}else{_alertWrap(t('msg.stock_max').replace('{n}',r.ref));}return;}
   panierData.push({id:r.id,ref:r.ref,marque:r.marque,modele:r.modele||'',saison:r.saison,etat:r.etat,prix_vente:r.prix_vente,prix_cmd:prixApplique,propre:propre,qty:r.qty,qteCmd:2,provGroupe:r.provGroupe||''});
   var b=document.getElementById('panier-badge');if(b)b.textContent=panierData.reduce(function(s,p){return s+p.qteCmd;},0);
-  alert(r.ref+' '+t('msg.added_cart_suffix'));
+  _alertWrap(r.ref+' '+t('msg.added_cart_suffix'));
 }
 function updatePanierBadge(){
   var n=panierData.reduce(function(s,p){return s+p.qteCmd;},0);
@@ -8023,16 +8085,18 @@ function renderPanier(c){
   c.innerHTML=html;
 }
 async function validerCommande(){
-  if(!panierData.length){alert(t('msg.cart_empty'));return;}
+  try{
+  if(!panierData.length){_alertWrap(t('msg.cart_empty'));return;}
   var stockOk=true;
   for(var pi=0;pi<panierData.length;pi++){
     var p=panierData[pi];
     var stk=stockData.find(function(r){return r.id===p.id;});
-    if(!stk||stk.qty<p.qteCmd){alert(t('msg.stock_check').replace('{n}',p.ref).replace('{m}',stk?stk.qty:0));stockOk=false;break;}
+    if(!stk||stk.qty<p.qteCmd){_alertWrap(t('msg.stock_check').replace('{n}',p.ref).replace('{m}',stk?stk.qty:0));stockOk=false;break;}
   }
   if(!stockOk)return;
   var garageSelec=document.getElementById('cmd-garage')?.value||'';
   renderCheckout(document.getElementById('main-content'),garageSelec);
+  }catch(e){console.warn('[validerCommande]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 function renderCheckout(c,garageSelec){
   if(!c)c=document.getElementById('main-content');
@@ -8095,6 +8159,7 @@ function updatePayLabels(){
   if(lo)lo.style.borderColor=v==='en_ligne'?'#1e40af':'var(--border)';
 }
 async function confirmerCommande(){
+  try{
   var _ccBtn=document.getElementById('cmd-confirm-btn');
   if(_ccBtn&&_ccBtn.disabled)return;
   if(_ccBtn){_ccBtn.disabled=true;_ccBtn.textContent=t('msg.saving');}
@@ -8136,6 +8201,7 @@ async function confirmerCommande(){
   var btnsDiv=document.createElement('div');btnsDiv.style.cssText='display:flex;gap:10px;justify-content:center';
   btnsDiv.appendChild(succesBtn1);btnsDiv.appendChild(succesBtn2);succesDiv.appendChild(btnsDiv);
   var mc=document.getElementById('main-content');mc.innerHTML='';mc.appendChild(succesDiv);
+  }catch(e){console.warn('[confirmerCommande]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);var _cb2=document.getElementById('cmd-confirm-btn');if(_cb2){_cb2.disabled=false;_cb2.textContent=t('btn.confirm_order');}}
 }
 
 function renderMesCommandes(c){
@@ -8231,6 +8297,7 @@ function editStockUpdateSites(){
   if(grp&&groupeSites[grp]){groupeSites[grp].forEach(function(s){ss.innerHTML+='<option value="'+escH(s)+'">'+escH(s)+'</option>';});}
 }
 async function saveEditStock(i){
+  try{
   var r=stockData.find(function(x){return x.id===i;});if(!r)return;
   var ref=(document.getElementById('edit-ref')?.value||r.ref).trim();
   var marque=(document.getElementById('edit-marque')?.value||r.marque).trim();
@@ -8261,6 +8328,7 @@ async function saveEditStock(i){
   r.li=li;r.si=si;
   document.getElementById('edit-stock-overlay')?.remove();
   filterStock(r.stock);
+  }catch(e){console.warn('[saveEditStock]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 // EDIT CLIENT (formulaire complet)
@@ -8363,6 +8431,7 @@ async function _billitCall(body){
 }
 var _billitImportData={};
 async function billitImportTout(){
+  try{
   var modal=document.createElement('div');
   modal.id='billit-modal-imp';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -8411,8 +8480,10 @@ async function billitImportTout(){
   h+='<div style="display:flex;gap:10px;justify-content:flex-end"><button onclick="document.getElementById(\'billit-modal-imp\').remove()" style="padding:8px 18px;border-radius:8px;border:1px solid var(--border);cursor:pointer;background:var(--bg2);font-size:13px">Annuler</button><button onclick="billitImportConfirm(this)" style="padding:8px 18px;border-radius:8px;border:none;background:#4F46E5;color:#fff;font-weight:700;cursor:pointer;font-size:13px">Tout importer dans Billit</button></div>';
   document.getElementById('billit-import-body').innerHTML=h;
   document.getElementById('billit-imp-sub').textContent='Vérifiez avant de confirmer';
+  }catch(e){console.warn('[billitImportTout]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 async function billitImportConfirm(btn){
+  try{
   btn.disabled=true;btn.textContent='⏳ Import...';
   var d=_billitImportData;
   var ok=0,err=0,msgs=[];
@@ -8435,13 +8506,15 @@ async function billitImportConfirm(btn){
     catch(ex){err++;msgs.push('Vente '+g+': '+ex.message);}
   }
   document.getElementById('billit-modal-imp').remove();
-  alert(err===0?'✅ Import complet !\n'+ok+' factures créées dans Billit.':'Import : '+ok+' OK, '+err+' erreur(s)\n\n'+msgs.join('\n'));
+  _alertWrap(err===0?'✅ Import complet !\n'+ok+' factures créées dans Billit.':'Import : '+ok+' OK, '+err+' erreur(s)\n\n'+msgs.join('\n'));
   renderFinances();
+  }catch(e){console.warn('[billitImportConfirm]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);if(btn){btn.disabled=false;btn.textContent='Tout importer dans Billit';}}
 }
 async function billitSendFacture(cmdId,btn){
+  try{
   if(btn){btn.disabled=true;btn.textContent='⏳...';}
   const {data:cmd}=await sb.from('commandes').select('*').eq('id',cmdId).single();
-  if(!cmd){alert('Commande introuvable');if(btn){btn.disabled=false;btn.textContent='📤 Billit';}return;}
+  if(!cmd){_alertWrap('Commande introuvable');if(btn){btn.disabled=false;btn.textContent='📤 Billit';}return;}
   var lg=[];try{lg=Array.isArray(cmd.lignes)?cmd.lignes:JSON.parse(cmd.lignes||'[]');}catch(e){}
   var _cmdDate=cmd.date_commande||new Date().toISOString().slice(0,10);
   var exp=new Date(_cmdDate);exp.setDate(exp.getDate()+30);
@@ -8454,18 +8527,21 @@ async function billitSendFacture(cmdId,btn){
     var data=await r.json();
     if(r.ok){
       if(btn){btn.textContent='✓ Envoyé';btn.style.background='#DCFCE7';btn.style.color='#166534';btn.style.borderColor='#86EFAC';}
-      alert('✅ Facture créée dans Billit !\nID Billit : '+JSON.stringify(data));
+      _alertWrap('✅ Facture créée dans Billit !\nID Billit : '+JSON.stringify(data));
     }else{
       if(btn){btn.disabled=false;btn.textContent='📤 Billit';}
-      alert('❌ Erreur Billit :\n'+JSON.stringify(data));
+      _alertWrap('❌ Erreur Billit :\n'+JSON.stringify(data));
     }
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent='📤 Billit';}
-    alert('❌ Erreur : '+e.message);
+    _alertWrap('❌ Erreur : '+e.message);
+    console.warn('[billitSendFacture]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);
   }
+  }catch(e){console.warn('[billitSendFacture-outer]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);if(btn){btn.disabled=false;btn.textContent='📤 Billit';}}
 }
 var _billitResetRunning=false;
 async function billitResetEtImporter(btn){
+  try{
   if(_billitResetRunning)return;
   if(!confirm('Supprimer TOUTES les factures Billit existantes et réimporter ?'))return;
   _billitResetRunning=true;
@@ -8473,7 +8549,7 @@ async function billitResetEtImporter(btn){
   var r=await _billitCall({method:'GET',endpoint:'/v1/orders'});
   var raw=await r.json();
   var invs=Array.isArray(raw)?raw:(raw&&Array.isArray(raw.value)?raw.value:(raw&&Array.isArray(raw.Orders)?raw.Orders:null));
-  if(!invs){alert('Erreur récupération :\n'+JSON.stringify(raw).substring(0,300));btn.disabled=false;btn.textContent='🗑 Tout supprimer & réimporter';return;}
+  if(!invs){_alertWrap('Erreur récupération :\n'+JSON.stringify(raw).substring(0,300));btn.disabled=false;btn.textContent='🗑 Tout supprimer & réimporter';return;}
   var delOk=0,delErr=0;
   for(var i=0;i<invs.length;i++){
     var id=invs[i].OrderID;
@@ -8487,8 +8563,10 @@ async function billitResetEtImporter(btn){
   await billitImportTout();
   btn.disabled=false;btn.textContent='🗑 Tout supprimer & réimporter';
   _billitResetRunning=false;
+  }catch(e){console.warn('[billitResetEtImporter]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);if(btn){btn.disabled=false;}_billitResetRunning=false;}
 }
 async function renderFinances(c){
+  try{
   if(!c)c=document.getElementById("main-content");
   c.style.padding='';c.style.height='';
   if(currentUser.role!=='admin_jamtires'){
@@ -8520,6 +8598,7 @@ async function renderFinances(c){
     facturesDb=facturesDb.filter(function(f){return f.groupe===grpFilter;});
   }
   _finFullRender(c,billitList,paiements,grpFilter,facturesDb);
+  }catch(e){console.warn('[renderFinances]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 function _finFullRender(c,billitInvoices,paiements,grpFilter,facturesDb){
   var TVA=1.21;
@@ -9065,7 +9144,7 @@ function _finSendRappel(btn){
   document.getElementById("rappel-send").onclick=function(){
     var to=document.getElementById("rappel-to").value||"";
     var msg=document.getElementById("rappel-msg").value||"";
-    if(!to){alert("Veuillez entrer une adresse email");return;}
+    if(!to){_alertWrap("Veuillez entrer une adresse email");return;}
     window.location.href="mailto:"+to+"?subject="+encodeURIComponent("Rappel de paiement — JAMTIRES")+"&body="+encodeURIComponent(msg);
   };
 }
@@ -9094,7 +9173,7 @@ function _finToggleDet(btn){
 
 async function _finPaye(id,btn){
   var res=await sb.from("commandes").update({statut_paiement:"Paye"}).eq("id",id);
-  if(res.error){alert(t('msg.error')+': '+res.error.message);return;}
+  if(res.error){_alertWrap(t('msg.error')+': '+res.error.message);return;}
   var row=btn.closest("tr");
   if(row){
     row.dataset.paid="1";row.style.opacity="0.72";
@@ -9170,13 +9249,13 @@ function _finPayAP(btn,grp,brut,paid,reste){
     var mode=document.getElementById('finpay-mode').value||'';
     var ref=(document.getElementById('finpay-ref').value||'').trim();
     var notes=document.getElementById('finpay-notes').value||'';
-    if(!montant||isNaN(montant)||montant<=0){alert(t('msg.enter_valid_amount'));return;}
-    if(montant>brut){alert(t('msg.amount_exceeds')+' (€'+brut.toFixed(2)+')');return;}
+    if(!montant||isNaN(montant)||montant<=0){_alertWrap(t('msg.enter_valid_amount'));return;}
+    if(montant>brut){_alertWrap(t('msg.amount_exceeds')+' (€'+brut.toFixed(2)+')');return;}
     this.disabled=true;this.textContent='...';
     var today=new Date().toISOString().slice(0,10);
     var notesFormatted='['+mode+'|'+ref+'] '+notes;
     var res=await sb.from('paiements_groupes').insert({groupe:grp,montant:montant,date_paiement:today,notes:notesFormatted});
-    if(res.error){alert(t('msg.error')+' '+res.error.message);this.disabled=false;this.textContent=t('billing.confirm_payment');return;}
+    if(res.error){_alertWrap(t('msg.error')+' '+res.error.message);this.disabled=false;this.textContent=t('billing.confirm_payment');return;}
     bg.remove();
     renderFinances(document.getElementById('main-content'));
   };
@@ -9187,6 +9266,7 @@ function _finPayAP(btn,grp,brut,paid,reste){
 // FACTURATION MENSUELLE
 // ══════════════════════════════════════════════════════════
 async function renderFacturation(c){
+  try{
   if(!c)c=document.getElementById('main-content');
   c.innerHTML='<div style="padding:2rem;text-align:center;color:var(--text2)">'+t('msg.loading')+'</div>';
   try{
@@ -9283,15 +9363,17 @@ async function renderFacturation(c){
   }
   h+='</div>';
   c.innerHTML=h;
+  }catch(e){console.warn('[renderFacturation]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 async function facGenerer(groupe,mois){
+  try{
   const _debut=mois+'-01';
   const _finJ=new Date(parseInt(mois.slice(0,4)),parseInt(mois.slice(5,7)),0).getDate();
   const _fin=mois+'-'+String(_finJ).padStart(2,'0');
   const {data:cmds}=await sb.from('commandes').select('*').eq('groupe',groupe).is('facture_id',null).gte('date_commande',_debut).lte('date_commande',_fin);
   const lignes=cmds||[];
-  if(!lignes.length){alert(t('billing.no_orders_for').replace('{g}',groupe).replace('{m}',mois));return;}
+  if(!lignes.length){_alertWrap(t('billing.no_orders_for').replace('{g}',groupe).replace('{m}',mois));return;}
   const ht=lignes.reduce(function(s,c){return s+(parseFloat(c.total)||0);},0);
   const tva=ht*0.21;const ttc=ht+tva;
   // Générer numéro de facture
@@ -9301,7 +9383,7 @@ async function facGenerer(groupe,mois){
   const facNum='FAC-'+yr+'-'+String(maxN+1).padStart(3,'0');
   // Vérifier qu'aucune facture avec ce numéro n'existe déjà (double-clic ou double onglet)
   const {data:dupCheck}=await sb.from('factures').select('id').eq('facture_number',facNum).maybeSingle();
-  if(dupCheck){alert('Numéro de facture '+facNum+' déjà utilisé. Réessayez.');return;}
+  if(dupCheck){_alertWrap('Numéro de facture '+facNum+' déjà utilisé. Réessayez.');return;}
   const debut=mois+'-01';
   const fin=mois+'-'+new Date(parseInt(mois.slice(0,4)),parseInt(mois.slice(5,7)),0).getDate();
   const echeance=new Date(new Date(fin).getTime()+30*86400000).toISOString().slice(0,10);
@@ -9310,17 +9392,19 @@ async function facGenerer(groupe,mois){
     montant_ht:ht,tva_rate:21,montant_tva:tva,montant_ttc:ttc,
     statut:'brouillon',date_echeance:echeance,nb_commandes:lignes.length
   }).select().single();
-  if(error){alert(t('msg.error')+' '+error.message);return;}
+  if(error){_alertWrap(t('msg.error')+' '+error.message);return;}
   // Lier les commandes à cette facture
   await sb.from('commandes').update({facture_id:newFac.id}).in('id',lignes.map(function(c){return c.id;}));
-  alert(t('billing.invoice_created').replace('{n}',facNum).replace('{c}',lignes.length).replace('{t}',ttc.toFixed(2)));
+  _alertWrap(t('billing.invoice_created').replace('{n}',facNum).replace('{c}',lignes.length).replace('{t}',ttc.toFixed(2)));
   renderFacturation(document.getElementById('main-content'));
+  }catch(e){console.warn('[facGenerer]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 async function facGenererToutes(){
+  try{
   const {data:cmds}=await sb.from('commandes').select('*').is('facture_id',null).not('groupe','is',null);
   const lignes=cmds||[];
-  if(!lignes.length){alert(t('billing.no_orders'));return;}
+  if(!lignes.length){_alertWrap(t('billing.no_orders'));return;}
   const parGroupeMois={};
   lignes.forEach(function(c){
     var mois=(c.date_commande||'').slice(0,7);var key=c.groupe+'|'+mois;
@@ -9331,29 +9415,35 @@ async function facGenererToutes(){
     var g=parGroupeMois[k];
     await facGenerer(g.groupe,g.mois);
   }
+  }catch(e){console.warn('[facGenererToutes]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 async function facEmettre(id){
+  try{
   const today=new Date().toISOString().slice(0,10);
   const echeance=new Date(new Date().getTime()+30*86400000).toISOString().slice(0,10);
   const {error}=await sb.from('factures').update({statut:'emise',date_emission:today,date_echeance:echeance}).eq('id',id);
-  if(error){alert(t('msg.error')+' '+error.message);return;}
+  if(error){_alertWrap(t('msg.error')+' '+error.message);return;}
   renderFacturation(document.getElementById('main-content'));
+  }catch(e){console.warn('[facEmettre]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 async function facMarquerPayee(id,btn){
+  try{
   const today=new Date().toISOString().slice(0,10);
   const {error}=await sb.from('factures').update({statut:'payee',date_paiement:today}).eq('id',id);
-  if(error){alert(t('msg.error')+' '+error.message);return;}
+  if(error){_alertWrap(t('msg.error')+' '+error.message);return;}
   await sb.from('commandes').update({statut_paiement:'Paye'}).eq('facture_id',id);
   if(btn)btn.closest('tr').querySelector('.bge').className='bge bg-g';
   renderFacturation(document.getElementById('main-content'));
+  }catch(e){console.warn('[facMarquerPayee]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 async function printFacture(id){
+  try{
   // Charger la facture et ses commandes
   const {data:fac}=await sb.from('factures').select('*').eq('id',id).single();
-  if(!fac){alert(t('billing.invoice_not_found'));return;}
+  if(!fac){_alertWrap(t('billing.invoice_not_found'));return;}
   const {data:cmds}=await sb.from('commandes').select('*').eq('facture_id',id).order('date_commande');
   const lignes=cmds||[];
   const moisLabel=fac.periode?new Date(fac.periode+'-01').toLocaleDateString('fr-BE',{month:'long',year:'numeric'}):'—';
@@ -9445,10 +9535,12 @@ async function printFacture(id){
   var pa=document.getElementById('print-area');
   pa.innerHTML=html;
   requestAnimationFrame(function(){requestAnimationFrame(function(){window.print();setTimeout(function(){pa.innerHTML='';},500);});});
+  }catch(e){console.warn('[printFacture]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 var _ecModele="";
 async function renderStockEC(c,type){
+  try{
   checkDemandesExpirees();
   await taLoadVendors();
   _ecType=type;_ecSaison="";_ecMarque="";_ecEtatChoisi="";_ecModele="";_ecAvailMdl=[];
@@ -9471,6 +9563,7 @@ async function renderStockEC(c,type){
   c.innerHTML=h;
   ecDimBuildW();
   ecRender();
+  }catch(e){console.warn('[renderStockEC]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 function _ecRows(){const w=document.getElementById('ec-larg')?.value||'',p=document.getElementById('ec-haut')?.value||'',r=document.getElementById('ec-diam')?.value||'',li=document.getElementById('ec-li')?.value||'';return stockData.filter(s=>s.stock===_ecType&&s.vis!=="Masqué"&&(s.vis==="Tous"||s.vis===currentUser.groupe||currentUser.role==='admin_jamtires')&&(!w||parseDim(s.ref).w===w)&&(!p||parseDim(s.ref).p===p)&&(!r||parseDim(s.ref).r===r)&&(!li||s.li===li));}
 function ecDimBuildW(){
@@ -9782,6 +9875,7 @@ function annulerFormDemande(key){
   if(btn)btn.style.display='';
 }
 async function confirmerDemande(dimBase,key,btn){
+  try{
   var saison=(document.getElementById('dem-saison-'+key)||{}).value||'';
   var li=((document.getElementById('dem-li-'+key)||{}).value||'').trim();
   var si=((document.getElementById('dem-si-'+key)||{}).value||'').trim().toUpperCase();
@@ -9789,14 +9883,16 @@ async function confirmerDemande(dimBase,key,btn){
   if(!dateLimite){
     var _errEl=document.getElementById('dem-err-'+key);
     if(_errEl){_errEl.textContent='Veuillez choisir une date limite (minimum 48h).';_errEl.style.display='block';}
-    else alert('Veuillez choisir une date limite de livraison (minimum 48h).');
+    else _alertWrap('Veuillez choisir une date limite de livraison (minimum 48h).');
     return;
   }
   var _errEl2=document.getElementById('dem-err-'+key);if(_errEl2)_errEl2.style.display='none';
   var dim=dimBase+(li?' '+li:'')+(si?si:'');
   await enregistrerDemande(dim,saison,'',dateLimite,btn);
+  }catch(e){console.warn('[confirmerDemande]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 async function enregistrerDemande(dim,saison,etat,dateLimite,btn){
+  try{
   if(!currentUser)return;
   btn.disabled=true;btn.textContent=t('msg.saving');
   var record={groupe:currentUser.groupe,garage_nom:currentUser.nom,garage_email:currentUser.login,dimension:dim,saison:saison||'Non précisée',etat_demande:etat||'',statut:'en_attente',date_limite:dateLimite};
@@ -9805,6 +9901,7 @@ async function enregistrerDemande(dim,saison,etat,dateLimite,btn){
   updateDemandeBadges();
   btn.textContent=t('msg.request_saved');btn.style.background='#15803d';btn.style.color='#fff';btn.style.border='none';
   setTimeout(function(){ecRender();},1500);
+  }catch(e){console.warn('[enregistrerDemande]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);if(btn){btn.disabled=false;}}
 }
 function checkDemandesExpirees(){
   var today=new Date().toISOString().slice(0,10);
@@ -9846,21 +9943,26 @@ function renderDemandesAdmin(c){
   h+='</tbody></table></div></div>';c.innerHTML=h;
 }
 async function adminUpdateDateLimite(id,date){
+  try{
   var d=demandesData.find(function(x){return String(x.id)===String(id);});
   if(!d||!date)return;
   d.date_limite=date;
   try{await sb.from('demandes').update({date_limite:date}).eq('id',id);}catch(e){}
   updateDemandeBadges();
+  }catch(e){console.warn('[adminUpdateDateLimite]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 async function adminFeuVert(id){
+  try{
   var d=demandesData.find(function(x){return String(x.id)===String(id);});
   if(!d)return;
   d.statut='feu_vert';
   try{await sb.from('demandes').update({statut:'feu_vert'}).eq('id',id);}catch(e){}
   try{await sb.from('green_lights').insert({garage_nom:d.garage_nom||'',garage_email:d.garage_email||'',groupe:d.groupe||'',dimension:d.dimension||'',saison:d.saison||'Non précisée',etat_demande:d.etat_demande||'',source:'admin_manuel'});}catch(e){}
   updateDemandeBadges();nav('demandes');
+  }catch(e){console.warn('[adminFeuVert]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 async function adminAttribuer(id){
+  try{
   var d=demandesData.find(function(x){return String(x.id)===String(id);});
   if(!d)return;
   d.statut='attribue';
@@ -9869,9 +9971,11 @@ async function adminAttribuer(id){
   var stockItem=stockData.find(function(r){return r.qty>0&&r.ref&&r.ref.startsWith(d.dimension)&&(!d.saison||d.saison==='Non précisée'||r.saison===d.saison);});
   if(stockItem)await creerCommandeAttribuee(d,stockItem,stockItem.id||null);
   updateDemandeBadges();nav('demandes');
+  }catch(e){console.warn('[adminAttribuer]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 async function creerCommandeAttribuee(dem,stockItem,stockId){
+  try{
   // Trouver le client correspondant à la demande
   var client=clientsData.find(function(c){return c.login===dem.garage_email||(c.groupe===dem.groupe&&(c.nom===dem.garage_nom||c.site===dem.garage_nom));});
   var clientLogin=client?client.login:(dem.garage_email||dem.groupe||'');
@@ -9890,6 +9994,7 @@ async function creerCommandeAttribuee(dem,stockItem,stockId){
     }
     commandesData.push({groupe:dem.groupe||'',garage:garage,client_login:clientLogin,client_nom:clientNom,statut:'En preparation',date:new Date().toISOString().slice(0,10),lignes:lignes});
   }catch(e){}
+  }catch(e){console.warn('[creerCommandeAttribuee]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 function renderMesDemandes(c){
   var myD=demandesData.filter(function(d){return d.groupe===currentUser.groupe;});
@@ -9910,8 +10015,8 @@ function ecAdd(gi){
   var r=stockData[gi];if(!r)return;
   var ex=panierData.find(function(p){return p.id===r.id;});
   var maxQte=Math.floor(r.qty/2)*2;
-  if(maxQte<2){alert(t('msg.stock_pair_min'));return;}
-  if(ex){if(ex.qteCmd+2<=maxQte)ex.qteCmd+=2;else{alert(t('msg.stock_max_min'));return;}}
+  if(maxQte<2){_alertWrap(t('msg.stock_pair_min'));return;}
+  if(ex){if(ex.qteCmd+2<=maxQte)ex.qteCmd+=2;else{_alertWrap(t('msg.stock_max_min'));return;}}
   else panierData.push({id:r.id,ref:r.ref,marque:r.marque,modele:r.modele||"",saison:r.saison,etat:r.etat,prix_vente:r.prix_vente,prix_cmd:getPrixCommande(r),propre:isPneuPropre(r),qty:r.qty,qteCmd:2,provGroupe:r.provGroupe||""});
   ecUpdateCartTB();
   var btn=document.getElementById("ecbtn"+gi);
@@ -10341,6 +10446,7 @@ function renderParamPage(c,tab){
 }
 
 async function renderDiagnostic(c){
+  try{
   c.innerHTML='<div style="padding:1rem;color:var(--text2);text-align:center;">Analyse en cours...</div>';
   const today=new Date().toISOString().slice(0,10);
 
@@ -10443,14 +10549,16 @@ async function renderDiagnostic(c){
     +'</div>'+html;
   c.setAttribute('id','diag-wrap');
   c.innerHTML=html;
+  }catch(e){console.warn('[renderDiagnostic]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 async function regulariserRamassages(grp,grpIdArg,ecartTotal){
+  try{
   var grpId=grpIdArg;
   if(!grpId||grpId==='null'){
     try{const {data:g}=await sb.from('groupes').select('id').eq('nom',grp).single();grpId=g?.id||null;}catch(e){}
   }
-  if(!grpId){alert('Groupe introuvable dans Supabase.');return;}
+  if(!grpId){_alertWrap('Groupe introuvable dans Supabase.');return;}
   if(!confirm('Régulariser '+ecartTotal.toLocaleString('fr-BE')+' pneus non tracés pour "'+grp+'" ?\n\nUn ramassage de régularisation sera créé avec les références manquantes.'))return;
 
   // 1. Stock du groupe — stock actuel (qty déjà décrémenté par les commandes)
@@ -10465,7 +10573,7 @@ async function regulariserRamassages(grp,grpIdArg,ecartTotal){
       stockRefs[k].stockQty+=(s.qty||0);
       stockIdToKey[s.id]=k;
     });
-  }catch(e){alert('Erreur stock: '+(e.message||e));return;}
+  }catch(e){_alertWrap('Erreur stock: '+(e.message||e));return;}
 
   // 2. Pneus commandés (collectés mais retirés du stock) — à ajouter au total collecté
   try{
@@ -10514,7 +10622,7 @@ async function regulariserRamassages(grp,grpIdArg,ecartTotal){
   });
 
   const totalManquant=itemsManquants.reduce(function(s,i){return s+(i.qty||0);},0);
-  if(!totalManquant){alert('Aucun écart à régulariser — tout est déjà tracé !');return;}
+  if(!totalManquant){_alertWrap('Aucun écart à régulariser — tout est déjà tracé !');return;}
 
   // 5. Créer UN seul ramassage de régularisation
   var ramId=null;
@@ -10525,7 +10633,7 @@ async function regulariserRamassages(grp,grpIdArg,ecartTotal){
     }).select('id').single();
     if(ramErr)throw ramErr;
     ramId=ram.id;
-  }catch(e){alert('Erreur création ramassage: '+(e.message||e));return;}
+  }catch(e){_alertWrap('Erreur création ramassage: '+(e.message||e));return;}
 
   // 6. Insérer les items manquants
   if(itemsManquants.length){
@@ -10535,12 +10643,13 @@ async function regulariserRamassages(grp,grpIdArg,ecartTotal){
     try{
       const {error:itemErr}=await sb.from('ramassage_items').insert(ramItems);
       if(itemErr)throw itemErr;
-    }catch(e){alert('Erreur insertion items: '+(e.message||e));return;}
+    }catch(e){_alertWrap('Erreur insertion items: '+(e.message||e));return;}
   }
 
-  alert('✅ Régularisation terminée !\n'+totalManquant.toLocaleString('fr-BE')+' pneus tracés en '+itemsManquants.length+' référence(s).');
+  _alertWrap('✅ Régularisation terminée !\n'+totalManquant.toLocaleString('fr-BE')+' pneus tracés en '+itemsManquants.length+' référence(s).');
   const tc=document.getElementById('diag-wrap');
   if(tc)await renderDiagnostic(tc);
+  }catch(e){console.warn('[regulariserRamassages]:',e.message);_showToast('Erreur inattendue: '+e.message,'#b45309',5000);}
 }
 
 // ═══════════════════════════════════════════════════════════════════
