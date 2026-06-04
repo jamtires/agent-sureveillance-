@@ -1,0 +1,37 @@
+[build]
+  publish = "."
+
+# Sécurité et performance — headers sur tous les fichiers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# HTML — pas de cache (toujours la dernière version)
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Pragma = "no-cache"
+
+# Assets statiques — cache long
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Redirection www → sans www
+[[redirects]]
+  from = "https://www.tyre-solution.be/*"
+  to = "https://tyre-solution.be/:splat"
+  status = 301
+  force = true
