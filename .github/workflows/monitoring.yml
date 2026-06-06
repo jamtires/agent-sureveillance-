@@ -1,0 +1,47 @@
+name: Surveillance plateforme — tyre-solution.be
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # toutes les heures, à H:00
+  workflow_dispatch:       # lancement manuel depuis GitHub Actions
+
+jobs:
+  monitor:
+    name: Tests Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: monitoring/package-lock.json
+
+      - name: Installation des dépendances
+        working-directory: monitoring
+        run: npm ci
+
+      - name: Installation du navigateur Chromium
+        working-directory: monitoring
+        run: npx playwright install --with-deps chromium
+
+      - name: Lancement des tests de surveillance
+        working-directory: monitoring
+        run: npm test
+        env:
+          PLATFORM_URL: https://tyre-solution.be
+
+      - name: Upload du rapport Playwright (en cas d'échec)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: |
+            monitoring/playwright-report/
+            monitoring/test-results/
+          retention-days: 7
