@@ -1,9 +1,9 @@
-name: Surveillance plateforme — tyre-solution.be
+name: JAMTIRES Monitoring
 
 on:
   schedule:
-    - cron: '0 * * * *'   # toutes les heures, à H:00
-  workflow_dispatch:       # lancement manuel depuis GitHub Actions
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
 jobs:
   monitor:
@@ -32,11 +32,23 @@ jobs:
 
       - name: Lancement des tests de surveillance
         working-directory: monitoring
-        run: npm test
+        run: npm run test:monitoring
         env:
           PLATFORM_URL: https://tyre-solution.be
 
-      - name: Upload du rapport Playwright (en cas d'échec)
+      - name: Génération du contexte d'échec
+        if: failure()
+        working-directory: monitoring
+        run: npm run build:failure-context
+
+      - name: Analyse des échecs avec Claude
+        if: failure()
+        working-directory: monitoring
+        run: npm run analyze:failure
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Upload des artefacts (rapport + analyse)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -44,4 +56,5 @@ jobs:
           path: |
             monitoring/playwright-report/
             monitoring/test-results/
+            monitoring/output/
           retention-days: 7
