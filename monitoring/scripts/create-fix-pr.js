@@ -93,8 +93,8 @@ async function getFixProposal(ctx, anal) {
     'api.anthropic.com', '/v1/messages',
     { 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
     {
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 512,
       messages: [{ role: 'user', content: `${prompt}\n\n---\n\n${ctx}\n\n---\n\n${anal}` }]
     }
   );
