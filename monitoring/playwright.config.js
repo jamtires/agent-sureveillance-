@@ -2,21 +2,17 @@ const { defineConfig } = require('@playwright/test');
 
 module.exports = defineConfig({
   testDir: './tests',
-  timeout: 30_000,
+  timeout: 30000,
   retries: 1,
-  reporter: [['html', { open: 'never' }], ['list']],
-
+  reporter: [
+    ['list'],
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['json', { outputFile: 'test-results/results.json' }]
+  ],
   use: {
-    baseURL: process.env.PLATFORM_URL || 'https://tyre-solution.be',
+    headless: true,
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
-    headless: true,
-  },
-
-  projects: [
-    {
-      name: 'chromium',
-      use: { browserName: 'chromium' },
-    },
-  ],
+    video: 'retain-on-failure'
+  }
 });
