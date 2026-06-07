@@ -1,9 +1,9 @@
 name: JAMTIRES Fix Validation
 
 on:
-  push:
+  pull_request:
     branches:
-      - 'fix/**'
+      - main
 
 jobs:
   validate:
