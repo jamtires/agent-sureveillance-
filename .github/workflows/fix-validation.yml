@@ -7,7 +7,7 @@ on:
 
 jobs:
   validate:
-    name: Tests Playwright — branche fix
+    name: Tests Playwright
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
