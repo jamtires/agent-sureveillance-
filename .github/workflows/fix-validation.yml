@@ -1,0 +1,47 @@
+name: JAMTIRES Fix Validation
+
+on:
+  push:
+    branches:
+      - 'fix/**'
+
+jobs:
+  validate:
+    name: Tests Playwright — branche fix
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: monitoring/package-lock.json
+
+      - name: Installation des dépendances
+        working-directory: monitoring
+        run: npm ci
+
+      - name: Installation Chromium
+        working-directory: monitoring
+        run: npx playwright install --with-deps chromium
+
+      - name: Tests Playwright
+        working-directory: monitoring
+        run: npm run test:monitoring
+        env:
+          PLATFORM_URL: https://tyre-solution.be
+
+      - name: Upload rapport (si échec)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fix-validation-report-${{ github.run_id }}
+          path: |
+            monitoring/playwright-report/
+            monitoring/test-results/
+          retention-days: 3

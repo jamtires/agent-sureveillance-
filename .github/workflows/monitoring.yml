@@ -38,15 +38,27 @@ jobs:
 
       - name: Génération du contexte d'échec
         if: failure()
+        continue-on-error: true
         working-directory: monitoring
         run: npm run build:failure-context
 
       - name: Analyse des échecs avec Claude
         if: failure()
+        continue-on-error: true
         working-directory: monitoring
         run: npm run analyze:failure
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Création de la PR de correction
+        if: failure()
+        continue-on-error: true
+        working-directory: monitoring
+        run: npm run create:fix-pr
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
 
       - name: Upload des artefacts (rapport + analyse)
         if: failure()

@@ -9,7 +9,8 @@
     "test:report": "playwright show-report",
     "test:ui": "playwright test --ui",
     "build:failure-context": "node scripts/build-failure-context.js",
-    "analyze:failure": "node scripts/analyze-with-claude.js"
+    "analyze:failure": "node scripts/analyze-with-claude.js",
+    "create:fix-pr": "node scripts/create-fix-pr.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.0"
