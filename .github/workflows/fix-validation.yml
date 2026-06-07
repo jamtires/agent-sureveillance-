@@ -1,13 +1,17 @@
 name: JAMTIRES Fix Validation
 
 on:
-  push:
+  pull_request:
     branches:
-      - 'fix/**'
+      - main
+
+permissions:
+  statuses: write
+  contents: read
 
 jobs:
   validate:
-    name: Tests Playwright — branche fix
+    name: Tests Playwright
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -31,13 +35,38 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Tests Playwright
+        id: tests
         working-directory: monitoring
         run: npm run test:monitoring
+        continue-on-error: true
         env:
           PLATFORM_URL: https://tyre-solution.be
 
+      - name: Publier le résultat (commit status fixe)
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+        with:
+          script: |
+            const state = process.env.TEST_OUTCOME === 'success' ? 'success' : 'failure';
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.payload.pull_request.head.sha,
+              state,
+              context: 'jamtires/playwright',
+              description: state === 'success'
+                ? 'Tests Playwright réussis'
+                : 'Tests Playwright échoués',
+            });
+
+      - name: Résultat du job
+        if: steps.tests.outcome != 'success'
+        run: exit 1
+
       - name: Upload rapport (si échec)
-        if: failure()
+        if: steps.tests.outcome != 'success'
         uses: actions/upload-artifact@v4
         with:
           name: fix-validation-report-${{ github.run_id }}
