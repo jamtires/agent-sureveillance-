@@ -1,5 +1,15 @@
 const { test, expect } = require('@playwright/test');
 
+// Collecteur d'erreurs JavaScript non gérées (exceptions "uncaught").
+// Ce type d'erreur révèle un bug de code, pas un simple avertissement réseau.
+function collecteurErreursJS(page) {
+  const erreurs = [];
+  page.on('pageerror', (err) => {
+    erreurs.push(err && err.message ? err.message : String(err));
+  });
+  return erreurs;
+}
+
 test.describe('Surveillance — tyre-solution.be', () => {
 
   test('La page répond avec un statut HTTP valide', async ({ page }) => {
@@ -48,6 +58,20 @@ test.describe('Surveillance — tyre-solution.be', () => {
       hasLogin || hasDashboard,
       "Ni le formulaire de connexion ni le dashboard ne sont visibles — l'app ne répond pas"
     ).toBe(true);
+  });
+
+  test("Aucune erreur JavaScript non gérée au chargement", async ({ page }) => {
+    const erreurs = collecteurErreursJS(page);
+
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    // Petit délai pour laisser les scripts d'initialisation asynchrones s'exécuter.
+    await page.waitForTimeout(1500);
+
+    expect(
+      erreurs,
+      `Erreur(s) JavaScript détectée(s) au chargement :\n- ${erreurs.join('\n- ')}`
+    ).toHaveLength(0);
   });
 
 });

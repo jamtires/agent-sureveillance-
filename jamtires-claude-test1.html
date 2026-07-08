@@ -7944,6 +7944,8 @@ function switchUser(val){
 }
 
 function updateSidebar(){
+  // Rien à faire tant que personne n'est connecté (évite currentUser.role sur null au chargement anonyme)
+  if(!currentUser)return;
   // Masquer boutons admin pour non-admins
   setTimeout(function(){
     var encBtns=document.querySelectorAll('.btn-p');
