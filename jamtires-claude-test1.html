@@ -2092,7 +2092,7 @@ async function doLogin(){
           if(tmMatch){
             const roleMap={'Chauffeur':'chauffeur','Magasinier':'magasinier','Admin 2':'admin_jamtires','Responsable logistique':'magasinier'};
             const roleVal=roleMap[tmMatch.poste]||'magasinier';
-            await sb.from('clients').insert({nom:tmMatch.nom,login:email,role:roleVal,fonction:tmMatch.poste||'',statut:'Actif',acces:[],tarif:'fixe',site:'JAMTIRES',groupe:''}).catch(()=>{});
+            await sb.from('clients').insert({nom:tmMatch.nom,login:email,role:roleVal,fonction:tmMatch.poste||'',statut:'Actif',acces:[],tarif:'fixe',site:'JAMTIRES',groupe:''}).then(()=>{},()=>{});
             currentUser={role:roleVal,groupe:'',nom:tmMatch.nom,login:email,perm_stock:!!tmMatch.perm_stock,perm_delivery:!!tmMatch.perm_livraison,perm_encodage:!!tmMatch.perm_encodage,sub:roleVal==='chauffeur'?'Chauffeur · Enlèvements':roleVal==='magasinier'?t('role.magasinier_enc'):t('role.full_access')};
             restored=true;
           }
@@ -4228,7 +4228,7 @@ async function ncSave(){
     // Créer groupe si nouveau
     if(groupe&&!Object.keys(groupeSites).includes(groupe)){
       groupeSites[groupe]=[];
-      await sb.from('groupes').insert({nom:groupe}).catch(()=>{});
+      await sb.from('groupes').insert({nom:groupe}).then(()=>{},()=>{});
     }
     if(msg)msg.innerHTML='<span style="color:#065f46;font-weight:600">'+t('msg.client_saved')+'</span>';
     if(btn){btn.disabled=false;btn.textContent=t('btn.save_client');}
@@ -10477,9 +10477,9 @@ async function renderDiagnostic(c){
         sb.from('stock').select('qty').eq('prov_groupe',grp).eq('stock_type','Matching').limit(10000),
         sb.from('stock').select('qty').eq('prov_groupe',grp).eq('stock_type','Export').limit(10000)
       ]).catch(()=>null),
-      sb.from('commandes').select('lignes').eq('groupe',grp).lte('date_commande',today+'T23:59:59.999Z').catch(()=>null),
-      grpId?sb.from('ramassages').select('ramassage_items(qty_reel,qty)').eq('groupe_id',grpId).catch(()=>null):Promise.resolve(null),
-      sb.from('commandes').select('*',{count:'exact',head:true}).eq('groupe',grp).gte('date_commande',today+'T00:00:00.000Z').lte('date_commande',today+'T23:59:59.999Z').catch(()=>null)
+      sb.from('commandes').select('lignes').eq('groupe',grp).lte('date_commande',today+'T23:59:59.999Z').then(r=>r,()=>null),
+      grpId?sb.from('ramassages').select('ramassage_items(qty_reel,qty)').eq('groupe_id',grpId).then(r=>r,()=>null):Promise.resolve(null),
+      sb.from('commandes').select('*',{count:'exact',head:true}).eq('groupe',grp).gte('date_commande',today+'T00:00:00.000Z').lte('date_commande',today+'T23:59:59.999Z').then(r=>r,()=>null)
     ]);
 
     let stockTotal=0;
